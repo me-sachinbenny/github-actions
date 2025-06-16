@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build:
+    name: Build, Lint, and Test
+    runs-on: ubuntu-latest
+    env:
+      PIP_DISABLE_PIP_VERSION_CHECK: 1
+      UV_CACHE_DIR: .uv_cache
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache uv venv
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: ${{ runner.os }}-venv-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-venv-
+
+      - name: Ensure uv and venv
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install uv
+          test -f .venv/bin/activate || uv venv
+
+      - name: Install dependencies
+        run: |
+          source .venv/bin/activate
+          uv pip install -r requirements.txt
+
+      - name: Lint with flake8
+        run: |
+          source .venv/bin/activate
+          uv pip install flake8
+          flake8 .
+
+      - name: Run tests
+        run: |
+          source .venv/bin/activate
+          uv pip install pytest
+          pytest --maxfail=1 --disable-warnings --exitfirst
